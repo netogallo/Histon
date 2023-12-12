@@ -51,8 +51,9 @@ pub struct SelectResult<Values> {
 
 impl<TValue> FromIterator<TValue> for SelectResult<TValue> {
 
-    fn from_iter<T: IntoIterator<Item = TValue>>(_iter: T) -> Self {
-        panic!("not implemented")
+    fn from_iter<T: IntoIterator<Item = TValue>>(iter: T) -> Self {
+
+        return SelectResult{ values : iter.into_iter().collect() };
     }
 }
 

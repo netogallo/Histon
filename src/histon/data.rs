@@ -2,7 +2,6 @@ use std::{any::Any, collections::HashMap};
 
 use super::foundations::*;
 
-
 struct StaticRelation {
     columns : HashMap<String, Box<dyn Any>>
 }

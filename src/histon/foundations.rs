@@ -1,7 +1,8 @@
 use std::any::{Any, TypeId};
-use std::rc::Rc;
+use std::slice::Iter;
+use std::iter::{Map, Zip};
 
-enum RelationError {
+pub enum RelationError {
     IncorrectColumnType { column : String, type_id : TypeId },
     IncorrectColumnCount { expected : usize, actual : usize }
 }
@@ -19,10 +20,10 @@ impl RelationError {
     }
 
     pub fn raise_incorrect_column_type<T>(
-        column : String,
+        column : &String,
     ) -> RelationResult<T>
     where T : Any {
-        return Result::Err(RelationError::IncorrectColumnType { column, type_id: TypeId::of::<T>() })
+        return Result::Err(RelationError::IncorrectColumnType { column : column.clone(), type_id: TypeId::of::<T>() })
     }
 
     pub fn incorrect_column_type<T>(
@@ -33,130 +34,122 @@ impl RelationError {
     }
 }
 
-struct ToArgsIterator<'a, TValue> {
-    values : &'a Vec<TValue>
-}
+pub trait ToArgs : Sized {
 
-impl<'a, TValue> Iterator for ToArgsIterator<'a, &TValue> {
-    type Item = TValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        panic!("not implemented")
-    }
-}
-
-impl<'a, TValue> ToArgsIterator<'a, TValue> {
-
-    pub fn from_any_ref(
-        column : String,
-        the_box : & dyn Any
-    ) -> RelationResult<Rc<Self>>
-    where Self : 'static {
-
-        let self_case = the_box.downcast_ref::<Self>();
-        let vec_case = the_box.downcast_ref::<Vec<TValue>>().map(
-            |vec| { ToArgsIterator { values : vec } }
-        );
-
-        return self_case.or(vec_case)
-            .map_err(|_box| { RelationError::incorrect_column_type::<Box<Self>>(column) });
-    }
-}
-
-
-pub trait ToArgs : Any + Sized {
+    type Item<'a>;
+    type Iter<'a> : Iterator<Item = Self::Item<'a>>;
     
-    fn to_args (
+    fn to_args<'a>(
         columns : &Vec<String>,
-        args : &Vec<Rc<dyn Any>>
-    ) -> Result<ToArgsIterator<Self>, RelationError>;
+        args : &'a Vec<&'a dyn Any>,
+    ) -> RelationResult<Self::Iter<'a>>;
 }
 
-pub struct SelectIterator<Values> {
+pub struct SelectResult<Values> {
     pub values : Vec<Values>
 }
 
-impl<TValue> FromIterator<TValue> for SelectIterator<TValue> {
+impl<TValue> FromIterator<TValue> for SelectResult<TValue> {
 
-    fn from_iter<T: IntoIterator<Item = TValue>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = TValue>>(_iter: T) -> Self {
         panic!("not implemented")
     }
 }
 
 pub trait SelectDispatchFn<Args, TResult> {
 
-    fn dispatch(
+    fn dispatch<'a>(
         &self,
         columns : &Vec<String>,
-        args: &Vec<Rc<dyn Any>>
-    ) -> RelationResult<SelectIterator<TResult>>;
+        args: &'a Vec<&'a dyn Any>
+    ) -> RelationResult<SelectResult<TResult>>
+    where
+        Args : ToArgs,
+        Self : Fn(<Args as ToArgs>::Item<'a>) -> TResult;
 }
 
-impl<A1> ToArgs for (&'static A1,)
-    where
-        A1 : Any
-    {
+fn iter_from_known_collection<'a, TValue>(
+    column : &String,
+    collection : &'a dyn Any
+) -> RelationResult<Iter<'a, TValue>>
+    where TValue : Any {
 
-    fn to_args(
+    let try_vec = collection.downcast_ref::<Vec<TValue>>().map(|v| { v.iter() });
+
+    return try_vec
+        .ok_or_else(|| { RelationError::incorrect_column_type::<Iter<TValue>>(column.clone()) })
+}
+
+impl<A1> ToArgs for (&'_ A1,) where A1 : Any {
+
+    type Item<'a> = (&'a A1,);
+    type Iter<'a> = Map<Iter<'a, A1>, fn(&A1) -> (&A1,)>;
+
+    fn to_args<'a>(
         columns : &Vec<String>,
-        args : &Vec<Rc<dyn Any>>) -> RelationResult<ToArgsIterator<(&'static A1,)>> {
+        args : &'a Vec<&'a dyn Any>
+    ) -> RelationResult<Self::Iter<'a>> {
 
         if args.len() != 1 {
             return RelationError::raise_incorrect_column_count(1,columns.len())
         }
 
-        return ToArgsIterator::from_any_ref(columns[0], args[0])
+        return iter_from_known_collection(&columns[0], args[0])
             .map(|v| {
-                v.map(|v| { (v,) }).collect()
+                let mapper : fn(&A1) -> (&A1,) = |v| { (v,)};
+                return v.map(mapper);
             })
-            .or_else(|_e| RelationError::raise_incorrect_column_type(columns[0]));
+            .or_else(|_e| RelationError::raise_incorrect_column_type(&columns[0]));
     }
 }
 
-impl<A1,A2> ToArgs for (&'static A1,&'static A2)
+impl<A1,A2> ToArgs for (&'_ A1,&'_ A2)
     where
-        A1 : Any + Clone
-        , A2 : Any + Clone {
+        A1 : Any,
+        A2 : Any
+    {
 
-    fn to_args(
+    type Item<'a> = (&'a A1, &'a A2);
+    type Iter<'a> = Zip<Iter<'a, A1>, Iter<'a, A2>>;
+
+    fn to_args<'a>(
         columns : &Vec<String>,
-        args : &Vec<Rc<dyn Any>>
-    ) -> RelationResult<ToArgsIterator<(&'static A1,&'static A2)>> {
+        args : &'a Vec<&'a dyn Any>,
+    ) -> RelationResult<Self::Iter<'a>> {
 
         if args.len() != 2 {
             return RelationError::raise_incorrect_column_count(2, columns.len())
         }
 
-        let arg1 : RelationResult<Rc<ToArgsIterator<&A1>>> =
-            ToArgsIterator::from_any_ref(columns[0], args[0])
-            .map_err(|_e| { RelationError::incorrect_column_type::<Box<A1>>(columns[0]) });
+        let arg1 = iter_from_known_collection::<A1>(&columns[0], args[0]);
         
-        let arg2 : RelationResult<Rc<ToArgsIterator<&A2>>> =
-            ToArgsIterator::from_any_ref(columns[1], args[1])
-            .map_err(|_e| { RelationError::incorrect_column_type::<Box<A2>>(columns[1])});
+        let arg2 = iter_from_known_collection::<A2>(&columns[1], args[1]);
 
         return arg1.and_then(|a1| { 
             arg2.map(|a2|{
-                // a1.zip(a2).collect()
-                panic!("no")
+                a1.zip(a2)
             })
         });
     }
 }
 
-impl<F, Args, TResult> SelectDispatchFn<Args, TResult> for F
-    where
-        F : FnMut(Args) -> TResult
-        , Args : ToArgs {
+impl<F, Args, TResult> SelectDispatchFn<Args, TResult> for F {
     
-    fn dispatch(
+    fn dispatch<'a>(
         &self,
         columns: &Vec<String>,
-        args: &Vec<Rc<dyn Any>>
-    ) -> RelationResult<SelectIterator<TResult>> {
+        args: &'a Vec<&'a dyn Any>
+    ) -> RelationResult<SelectResult<TResult>>
+    where
+        Args : ToArgs,
+        Self : Fn(<Args as ToArgs>::Item<'a>) -> TResult {
         
-        let args : RelationResult<ToArgsIterator<Args>> = ToArgs::to_args(columns, args);
-        return args.map(|args| { args.map(|v| { self(v) }).collect() })
+        let to_args_result = <Args as ToArgs>::to_args(columns, args);
+        return to_args_result
+            .map(|args| {
+                args.map(|v| { self(v) }).collect()
+            }
+        )
     }
 }
 
@@ -165,6 +158,9 @@ pub trait Relation {
         &self,
         columns : &Vec<String>,
         select : F
-    ) -> RelationResult<SelectIterator<TResult>>
-    where F : SelectDispatchFn<Args, TResult>;
+    ) -> RelationResult<SelectResult<TResult>>
+    where
+        Args : ToArgs,
+        F : Fn(<Args as ToArgs>::Item<'_>) -> TResult,
+        F : SelectDispatchFn<Args, TResult>;
 }

@@ -1,11 +1,10 @@
 use std::{any::Any, collections::HashMap};
-use std::rc::Rc;
 
 use super::foundations::*;
 
 
 struct StaticRelation {
-    columns : HashMap<String, Rc<dyn Any>>
+    columns : HashMap<String, Box<dyn Any>>
 }
 
 impl Relation for StaticRelation {
@@ -14,15 +13,18 @@ impl Relation for StaticRelation {
         &self,
         columns : &Vec<String>,
         select : FOut
-    ) -> RelationResult<SelectIterator<TResult>>
+    ) -> RelationResult<SelectResult<TResult>>
     where
+        Args : ToArgs,
+        FOut : Fn(<Args as ToArgs>::Item<'_>) -> TResult,
         FOut : SelectDispatchFn<Args, TResult> {
 
-    
+
         let args =
             columns.iter()
-            .map(|col| { self.columns[col].clone() })
+            .map(|col| { self.columns[col].as_ref() })
             .collect();
+
     
         return select.dispatch(columns, &args)
     }

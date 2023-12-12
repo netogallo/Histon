@@ -8,15 +8,13 @@ pub struct StaticRelation {
 
 impl Relation for StaticRelation {
 
-    fn try_select<FOut, Args, TResult>(
+    fn try_select<F, TResult>(
         &self,
         columns : &Vec<String>,
-        select : FOut
+        select : F
     ) -> RelationResult<SelectResult<TResult>>
     where
-        Args : ToArgs,
-        FOut : Fn(<Args as ToArgs>::Item<'_>) -> TResult,
-        FOut : SelectDispatchFn<Args, TResult> {
+        F : SelectDispatchFn<TResult> {
 
 
         let args =

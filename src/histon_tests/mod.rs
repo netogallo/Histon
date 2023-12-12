@@ -20,9 +20,9 @@ mod tests {
         let columns = vec![String::from("one"), String::from("two")];
         let values = vec![(1,2),(3,4),(5,6)];
         let relation = relation::from_iterable(&columns, values);
-        let select = relation.try_select::<_,(&u32, &u32),_>(
+        let select = relation.try_select::<fn(&u32, &u32) -> u32,_>(
             &columns,
-            |(one,two)| { one + two }
+            |one,two| { one + two }
         );
     }
 }

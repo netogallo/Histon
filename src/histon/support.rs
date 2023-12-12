@@ -1,7 +1,7 @@
 use core::any::Any;
 use std::collections::HashMap;
 
-type DynamicColumnMap = HashMap<String, Box<dyn Any>>
+type DynamicColumnMap = HashMap<String, Box<dyn Any>>;
 
 pub trait ToColumn {
 
@@ -25,7 +25,7 @@ impl<A1,A2> ToColumn for (A1,A2) {
         let c2: Vec<A2> = Vec::new();
         let mut result: DynamicColumnMap = HashMap::new();
 
-        result.insert(columns[0], Box::new(c1));
+        // result.insert(columns[0], Box::new(c1));
 
         return result
     }

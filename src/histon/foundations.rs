@@ -57,16 +57,13 @@ impl<TValue> FromIterator<TValue> for SelectResult<TValue> {
     }
 }
 
-pub trait SelectDispatchFn<Args, TResult> {
+pub trait SelectDispatchFn<TResult> {
 
     fn dispatch<'a>(
         &self,
         columns : &Vec<String>,
         args: &'a Vec<&'a dyn Any>
-    ) -> RelationResult<SelectResult<TResult>>
-    where
-        Args : ToArgs,
-        Self : Fn(<Args as ToArgs>::Item<'a>) -> TResult;
+    ) -> RelationResult<SelectResult<TResult>>;
 }
 
 fn iter_from_known_collection<'a, TValue>(
@@ -134,34 +131,34 @@ impl<A1,A2> ToArgs for (&'_ A1,&'_ A2)
     }
 }
 
-impl<F, Args, TResult> SelectDispatchFn<Args, TResult> for F {
+impl<A1, A2, TResult> SelectDispatchFn<TResult> for fn(&A1, &A2) -> TResult
+    where
+        A1 : Any,
+        A2 : Any {
     
     fn dispatch<'a>(
         &self,
         columns: &Vec<String>,
         args: &'a Vec<&'a dyn Any>
-    ) -> RelationResult<SelectResult<TResult>>
-    where
-        Args : ToArgs,
-        Self : Fn(<Args as ToArgs>::Item<'a>) -> TResult {
+    ) -> RelationResult<SelectResult<TResult>> {
+    // where
+        // (&A1, &A2) : ToArgs,
+        // Self : Fn(<Args as ToArgs>::Item<'a>) -> TResult {
         
-        let to_args_result = <Args as ToArgs>::to_args(columns, args);
+        let to_args_result = <(&A1, &A2) as ToArgs>::to_args(columns, args);
         return to_args_result
             .map(|args| {
-                args.map(|v| { self(v) }).collect()
+                args.map(|(a1, a2)| { self(a1, a2) }).collect()
             }
         )
     }
 }
 
 pub trait Relation {
-    fn try_select<F, Args, TResult>(
+    fn try_select<F, TResult>(
         &self,
         columns : &Vec<String>,
         select : F
     ) -> RelationResult<SelectResult<TResult>>
-    where
-        Args : ToArgs,
-        F : Fn(<Args as ToArgs>::Item<'_>) -> TResult,
-        F : SelectDispatchFn<Args, TResult>;
+    where F : SelectDispatchFn<TResult>;
 }

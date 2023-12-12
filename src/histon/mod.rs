@@ -22,8 +22,9 @@ pub mod relation {
         let mut data: HashMap<String, Box<dyn Any>> = HashMap::new();
 
         for column in columns {
-            let value : Box<dyn Any> = Box::new(vec());
-            data.insert(column.clone(), vec())
+
+            // let value : Box<dyn Any> = Box::new(vec());
+            // data.insert(column.clone(), vec())
         }
 
         panic!("")

@@ -19,10 +19,17 @@ mod tests {
 
         let columns = vec![String::from("one"), String::from("two")];
         let values = vec![(1,2),(3,4),(5,6)];
-        let relation = relation::from_iterable(&columns, values);
-        let select = relation.try_select::<fn(&u32, &u32) -> u32,_>(
+        let select_fn: fn(&u32, &u32) -> u32 = |one,two| { one + two };
+        let expected = values.iter().map(|(v1, v2)| { select_fn(v1,v2)});
+        
+        let relation = relation::from_iterable(&columns, values.clone());
+        let select = relation.try_select(
             &columns,
-            |one,two| { one + two }
+            select_fn
         );
+
+        for (actual, expected) in select.unwrap().values.iter().zip(expected) {
+            assert_eq!(actual.clone(), expected);
+        }
     }
 }

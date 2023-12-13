@@ -1,14 +1,12 @@
 mod data;
-mod foundations;
 mod extend;
+mod foundations;
+mod join;
 mod support;
 
 pub use foundations::Relation;
 
 pub mod relation {
-
-    use core::any::Any;
-    use std::collections::HashMap;
 
     use super::data::StaticRelation;
     use super::support::ToColumn;
@@ -19,14 +17,14 @@ pub mod relation {
     ) -> StaticRelation
     where Item : ToColumn {
 
-        let mut data: HashMap<String, Box<dyn Any>> = HashMap::new();
+        let mut data = <Item as ToColumn>::init_columns(columns);
 
-        for column in columns {
-
-            // let value : Box<dyn Any> = Box::new(vec());
-            // data.insert(column.clone(), vec())
+        for value in values {
+            <Item as ToColumn>::add_column(value, &mut data);
         }
 
-        panic!("")
+        return StaticRelation{ 
+            columns : data.to_hash_map()
+        };
     }
 }

@@ -137,12 +137,7 @@ impl <'a> RelationColumnDataRef<'a> {
             .map(|vec| { RelationColumnContainer::FromSliceIter { v_iter: vec.iter() }})
             .ok_or(RelationError::incorrect_column_type::<TItem>(column.clone()));
 
-        let map : fn(&'a Box<dyn Any>) -> RelationResult<&'a TItem> = |bound| {
-                bound.downcast_ref::<TItem>()
-                    .ok_or(RelationError::incorrect_bounds_type::<TItem>(bound.as_ref()))
-            };
-
-        let selection = bounds.try_map(map);
+        let selection = bounds.from_any::<TItem>();
 
         (selection, container).lift_err(|ok_selection, ok_container| {
             Ok(

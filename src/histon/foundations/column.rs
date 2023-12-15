@@ -70,16 +70,15 @@ impl<'a,TItem> Iterator for RelationColumnIter<'a, TItem>
     }
 }
 
-impl <'a> RelationColumnDataRef<'a> {
+impl RelationColumnDataRef<'_> {
 
     fn iter_vec<'t, TItem>(
         column : &String,
         bounds : &'t RelationColumnSelectionDyn,
-        vec : &'a dyn Any
+        vec : &'t dyn Any
     ) -> RelationResult<RelationColumnIter<'t, TItem>>
         where
-            TItem : Any,
-            'a : 't {
+            TItem : Any {
 
         let container = vec.downcast_ref::<Vec<TItem>>()
             .map(|vec| { RelationColumnContainer::FromSliceIter { v_iter: vec.iter() }})
@@ -98,13 +97,12 @@ impl <'a> RelationColumnDataRef<'a> {
     }
 
     pub fn iter_as<'t, TItem>(
-        &self,
-        column: &'a String,
+        &'t self,
+        column: &'t String,
         bounds : &'t RelationColumnSelectionDyn
     ) -> RelationResult<RelationColumnIter<'t, TItem>>
         where
-            TItem : Any,
-            'a : 't {
+            TItem : Any {
 
         match self {
             RelationColumnDataRef::VecRef { vec_ref } =>
@@ -114,6 +112,7 @@ impl <'a> RelationColumnDataRef<'a> {
 }
 
 pub trait RelationColumnRange {
+    
     fn iter_as<'t, TItem>(&'t self) -> RelationResult<RelationColumnIter<'t, TItem>>
         where
             TItem : Any;

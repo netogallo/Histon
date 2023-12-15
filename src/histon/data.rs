@@ -1,6 +1,7 @@
 use std::{any::Any, collections::HashMap, ops::{Bound, RangeBounds}};
 
 use super::foundations::*;
+use super::foundations::selection::*;
 
 pub struct StaticRelation {
     pub columns : HashMap<String, Box<dyn Any>>

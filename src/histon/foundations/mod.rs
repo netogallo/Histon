@@ -1,14 +1,15 @@
-mod bounds;
-mod control;
-mod result;
+pub mod bounds;
+pub mod control;
+pub mod selection;
+pub mod result;
 
 use std::any::Any;
-use std::ops::{RangeBounds, RangeFull, Bound};
 use std::slice::Iter;
 use std::iter::{Map, Zip};
 
 use self::control::LiftErr;
 use self::result::*;
+use self::selection::*;
 
 pub enum RelationColumnContainer<'a, TItem> {
     FromSliceIter { v_iter : Iter<'a, TItem> }
@@ -36,14 +37,6 @@ impl<'a,TItem> Iterator for RelationColumnContainer<'a, TItem> {
     }
 }
 
-#[derive(Clone)]
-pub enum RelationColumnSelection<TItem> {
-    BoundsSelection { bounds : (Bound<TItem>, Bound<TItem>) },
-    AllItems
-}
-
-pub type RelationColumnSelectionDyn = RelationColumnSelection<Box<dyn Any>>;
-
 impl<TItem> RelationColumnSelection<TItem> {
 
     pub fn try_map<'a, F, TOut, TErr>(&'a self, f : F) -> Result<RelationColumnSelection<TOut>, TErr>
@@ -58,19 +51,6 @@ impl<TItem> RelationColumnSelection<TItem> {
                 })
             },
             Self::AllItems => Ok(RelationColumnSelection::AllItems)
-        }
-    }
-}
-
-impl<TItem> RelationColumnSelection<TItem> {
-    
-    fn contains(&self, other: &TItem) -> bool
-        where TItem : Ord {
-
-        match self {
-            Self::BoundsSelection { bounds } =>
-                bounds.contains(other),
-            Self::AllItems => true
         }
     }
 }
@@ -110,6 +90,8 @@ impl<'a,TItem> Iterator for RelationColumnIter<'a, TItem>
     fn next(&mut self) -> Option<Self::Item> {
 
         while let Some(next) = self.container.next() {
+
+            //next.eval_selection(self.selection);
 
             if self.selection.contains(&next) {
                 return Some(next)

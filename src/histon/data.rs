@@ -9,15 +9,17 @@ pub struct StaticRelation {
 
 impl Relation for StaticRelation {
 
-    fn iter_selection(
-        &self,
+    type RelationColumn<'t> = RelationColumnLinearRange<'t>;
+
+    fn iter_selection<'t>(
+        &'t self,
         column : &String,
         range : Option<RelationColumnSelectionDyn>
-    ) -> RelationColumnRange<'_> {
+    ) -> Self::RelationColumn<'t> {
         
         match self.columns.get_key_value(column) {
             Some ((k,v)) => 
-                RelationColumnRange::from_vector_ref(k, v.as_ref(), range),
+            RelationColumnLinearRange::from_vector_ref(k, v.as_ref(), range),
             _ => panic!("not implemented")
         }
     }

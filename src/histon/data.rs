@@ -7,15 +7,15 @@ pub struct StaticRelation {
     pub columns : HashMap<String, Box<dyn Any>>
 }
 
-impl Relation for StaticRelation {
+impl<'t> Relation<'t> for StaticRelation where Self : 't {
 
-    type RelationColumn<'t> = RelationColumnLinearRange<'t>;
+    type RelationColumn = RelationColumnLinearRange<'t>;
 
-    fn iter_selection<'t>(
+    fn iter_selection(
         &'t self,
         column : &String,
         range : Option<RelationColumnSelectionDyn>
-    ) -> Self::RelationColumn<'t> {
+    ) -> Self::RelationColumn {
         
         match self.columns.get_key_value(column) {
             Some ((k,v)) => 

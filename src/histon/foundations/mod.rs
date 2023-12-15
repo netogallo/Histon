@@ -49,12 +49,11 @@ pub trait ToArgs : Sized {
     type Item<'a>;
     type Iter<'a> : Iterator<Item = Self::Item<'a>>;
     
-    fn to_args<'t, 'a, TColumn>(
+    fn to_args<'t, TColumn>(
         args : &'t Vec<TColumn>,
     ) -> RelationResult<Self::Iter<'t>>
     where
-        TColumn : RelationColumnRange<'a>,
-        'a : 't;
+        TColumn : RelationColumnRange;
 }
 
 pub struct SelectResult<Values> {
@@ -76,7 +75,7 @@ pub trait SelectDispatchFn<TResult> {
         args: &'a Vec<TColumn>
     ) -> RelationResult<SelectResult<TResult>>
     where
-        TColumn : RelationColumnRange<'a>;
+        TColumn : RelationColumnRange;
 }
 
 impl<A1> ToArgs for (&'_ A1,) where A1 : Any + Ord {
@@ -84,12 +83,11 @@ impl<A1> ToArgs for (&'_ A1,) where A1 : Any + Ord {
     type Item<'a> = (&'a A1,);
     type Iter<'a> = Map<RelationColumnIter<'a, A1>, fn(&A1) -> (&A1,)>;
 
-    fn to_args<'t, 'a, TColumn>(
+    fn to_args<'t, TColumn>(
         args : &'t Vec<TColumn>
     ) -> RelationResult<Self::Iter<'t>>
     where
-        TColumn : RelationColumnRange<'a>,
-        'a : 't {
+        TColumn : RelationColumnRange {
 
         if let [column] = &args[0..] {
             return column.iter_as::<A1>().map(|it| {
@@ -112,12 +110,11 @@ impl<A1,A2> ToArgs for (&'_ A1,&'_ A2)
     type Item<'a> = (&'a A1, &'a A2);
     type Iter<'a> = Zip<RelationColumnIter<'a, A1>, RelationColumnIter<'a, A2>>;
 
-    fn to_args<'t, 'a, TColumn>(
+    fn to_args<'t, TColumn>(
         args : &'t Vec<TColumn>,
     ) -> RelationResult<Self::Iter<'t>>
     where
-        TColumn : RelationColumnRange<'a>,
-        'a : 't {
+        TColumn : RelationColumnRange {
 
         if let [arg1, arg2] = &args[0..] {
             let it1 = arg1.iter_as::<A1>();
@@ -145,7 +142,7 @@ impl<A1, A2, TResult> SelectDispatchFn<TResult> for fn(&A1, &A2) -> TResult
         args: &'a Vec<TColumn>
     ) -> RelationResult<SelectResult<TResult>>
     where
-        TColumn : RelationColumnRange<'a> {
+        TColumn : RelationColumnRange {
         
         let to_args_result = <(&A1, &A2) as ToArgs>::to_args(args);
         return to_args_result
@@ -156,17 +153,17 @@ impl<A1, A2, TResult> SelectDispatchFn<TResult> for fn(&A1, &A2) -> TResult
     }
 }
 
-pub trait Relation {
+pub trait Relation<'t> {
 
-    type RelationColumn<'t> : RelationColumnRange<'t> where Self : 't;
+    type RelationColumn : RelationColumnRange + 't;
 
-    fn iter_selection<'t>(
+    fn iter_selection(
         &'t self, column : &String,
         range : Option<RelationColumnSelectionDyn>
-    ) -> Self::RelationColumn<'t>;
+    ) -> Self::RelationColumn;
 
     fn try_select<F, TResult>(
-        &self,
+        &'t self,
         columns : &Vec<String>,
         select : F
     ) -> RelationResult<SelectResult<TResult>>

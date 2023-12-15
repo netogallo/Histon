@@ -1,5 +1,13 @@
+use std::mem::transmute;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
+}
+
+pub unsafe fn shady_fun<T>() -> fn(T,T) -> T {
+
+    let f = add as fn(_,_) -> _;
+    return transmute(add as fn(_,_) -> _);
 }
 
 #[cfg(test)]
@@ -10,6 +18,13 @@ mod tests {
     fn it_works() {
         let result = add(2, 2);
         assert_eq!(result, 4);
+
+        unsafe {
+            let r1 = shady_fun::<u64>()(2, 2);
+            let r2 = transmute::<&str, u128>(shady_fun::<&str>()("a", "b"));
+            print!("res1: {r1}\n");
+            print!("res2: {r2}\n");
+        }
     }
 
     use super::super::histon::{Relation, relation};
